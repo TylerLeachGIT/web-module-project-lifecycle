@@ -12,11 +12,16 @@ class App extends Component {
       todos: [],
       filterCompleted: false,
       isLoading: true,
-      error: null
+      error: null,
+      message: ''
     };
   }
   
   componentDidMount() {
+    this.fetchTodos();
+  }
+
+  fetchTodos = () => {
     fetch(URL)
     .then((res) => {
       if (!res.ok) {
@@ -26,15 +31,11 @@ class App extends Component {
       })
       .then((responseData) => {
         console.log('Fetched data:', responseData);
-        if (responseData && Array.isArray(responseData.data)) {
           this.setState({
           todos: responseData.data,
           message: responseData.message,
           isLoading: false
         });
-        } else {
-          throw new Error('Received data is not in the expected format');
-        }
       })
       .catch((err) => {
         console.error("Error fetching todos:", err);
@@ -43,45 +44,53 @@ class App extends Component {
     }
 
   addTodo = (todoText) => {
-    const newTodo = { text: todoText, completed: false, id: Date.now().toString() };
-    this.setState(prevState => ({
-      todos: [...prevState.todos, newTodo]
-    }));
-
+    const newTodo = { text: todoText, completed: false };
     fetch(URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newTodo) //when sending data to a webserver it has to be a string. This converts a Javascrpit object into a string with 
       // JSON.stringify()
-    }).catch(err => console.error("Error adding todo:", err));
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to add todo');
+      }
+      return response.json();
+    })
+    .then(addedTodo => {
+      this.setState(prevState => ({
+        todos: [...prevState.todos, addedTodo]
+      }));
+    })
+    .catch(err => console.error("Error adding todo:", err));
   }
 
   toggleCompleted = (id) => {
-    this.setState(prevState => {
-      const todos = prevState.todos.map(todo =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      );
-      return { todos };
-    });
-
-    const todoToUpdate = this.state.todos.find(todo => todo.id === id);
     fetch(`${URL}/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...todoToUpdate, completed: !todoToUpdate.completed })
-    }).catch(err => console.error("Error updating todo:", err));
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to update todo');
+      }
+      return response.json();
+    })
+    .then(updatedTodo => {
+      this.setState(prevState => ({
+        todos: prevState.todos.map(todo => 
+          todo.id === updatedTodo.id ? updatedTodo : todo
+        )
+      }));
+    })
+    .catch(err => {
+      console.error("Error updating todo:", err);
+    });
   }
 
   clearCompleted = () => {
-    const completedTodos = this.state.todos.filter(todo => todo.completed);
-    this.setState(prevState => ({
-      todos: prevState.todos.filter(todo => !todo.completed)
-    }));
-  
-    completedTodos.forEach(todo => {
-      fetch(`${URL}/${todo.id}`, { method: 'DELETE' })
-      .catch(err => console.error("Error deleting todo:", err));
-    });
+    const incompleteTodos = this.state.todos.filter(todo => !todo.completed);
+    this.setState({ todos: incompleteTodos });
   }
 
   toggleFilter = () => {
@@ -93,6 +102,8 @@ class App extends Component {
   render() {
     const { todos, filterCompleted, isLoading, error, message } = this.state;
 
+    console.log('Rendering App, todos:', todos);//debug
+
     if (isLoading) {
       return <div>Loading...</div>;
     }
@@ -103,10 +114,12 @@ class App extends Component {
 
     const displayedTodos = filterCompleted ? todos.filter(todo => !todo.completed) : todos;
 
+
     return (
-      <div>
+      <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
         <h1>Todo List</h1>
         {message && <p>{message}</p>}
+        <p>Total todos: {todos.length}</p>
         <Form addTodo={this.addTodo} clearCompleted={this.clearCompleted} />
         <TodoList todos={displayedTodos} toggleCompleted={this.toggleCompleted} />
         <button onClick={this.toggleFilter}>

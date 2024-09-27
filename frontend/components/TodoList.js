@@ -5,6 +5,8 @@ class TodoList extends React.Component {
   render () {
     const { todos, toggleCompleted } = this.props;
 
+    console.log('TodoList rendering, todos:', todos); //debug
+
     if (!Array.isArray(todos)) {
       console.error('todos is not an array:', todos);
       return <p>There was an error loading the todos. Please try again later.</p>
@@ -15,7 +17,9 @@ class TodoList extends React.Component {
     }
 
     return (
-      <ul className='todo-list'>
+      <div>
+        <p>Number of todos: {todos.length}</p>
+      <ul className='todo-list' style={{ listStyle: 'none', padding: 0 }}>
         {todos.map((todo) => (
           <Todo
           key={todo.id}
@@ -24,6 +28,7 @@ class TodoList extends React.Component {
           />
         ))}
       </ul>
+      </div>
     );
   }
 }
