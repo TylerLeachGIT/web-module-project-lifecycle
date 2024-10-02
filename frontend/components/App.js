@@ -44,7 +44,12 @@ class App extends Component {
     }
 
   addTodo = (todoText) => {
-    const newTodo = { text: todoText, completed: false };
+    const newTodo = {
+      //needed to add id: so new todos added to the list get an id. Date.now() makes a unique id based on the current timestamp
+      id: Date.now(),
+      name: todoText,
+      completed: false
+    };
     fetch(URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -53,7 +58,7 @@ class App extends Component {
     })
     .then(response => {
       if (!response.ok) {
-        throw new Error('Failed to add todo');
+       return response.text().then(text => { throw new Error(text) });
       }
       return response.json();
     })
@@ -62,13 +67,25 @@ class App extends Component {
         todos: [...prevState.todos, addedTodo]
       }));
     })
-    .catch(err => console.error("Error adding todo:", err));
+    .catch(err => {
+      console.error("Error adding todo:", err);
+      this.setState({ error: err.message });
+    }) 
   }
 
   toggleCompleted = (id) => {
+
+    //need to flesh this out to be able to find and update todo
+    const todoToUpdate = this.state.todos.find(todo => todo.id === id);
+    if (!todoToUpdate) return;
+
+    const updatedTodo = { ...todoToUpdate, completed: !todoToUpdate.completed };
+
+
     fetch(`${URL}/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed: updatedTodo.completed })
     })
     .then(response => {
       if (!response.ok) {
@@ -76,16 +93,23 @@ class App extends Component {
       }
       return response.json();
     })
-    .then(updatedTodo => {
+    .then(response => {
+      const updatedTodoFromServer = response.data || response;
+      
       this.setState(prevState => ({
         todos: prevState.todos.map(todo => 
-          todo.id === updatedTodo.id ? updatedTodo : todo
+          todo.id === id ?  updatedTodoFromServer : todo
         )
       }));
     })
     .catch(err => {
       console.error("Error updating todo:", err);
     });
+    this.setState(prevState => ({
+      todos: prevState.todos.map(todo =>
+        todo.id === id ? updatedTodo : todo
+      )
+    }));
   }
 
   clearCompleted = () => {
